@@ -476,8 +476,8 @@ impl FileSink {
             .or_else(|| Some(std::path::Path::new(".")))
         {
             if let Ok(stat) = statvfs(parent) {
-                let free_space = stat.blocks_available() * stat.fragment_size();
-                let total_space = stat.blocks() * stat.fragment_size();
+                let free_space = stat.blocks_available() as u64 * stat.fragment_size() as u64;
+                let total_space = stat.blocks() as u64 * stat.fragment_size() as u64;
 
                 // If less than 5% free or less than 100MB, trigger auto-recovery (cleanup old logs)
                 if free_space < total_space / 20 || free_space < 100 * 1024 * 1024 {
@@ -486,7 +486,7 @@ impl FileSink {
 
                     // Re-check after cleanup
                     if let Ok(stat) = statvfs(parent) {
-                        let free_space = stat.blocks_available() * stat.fragment_size();
+                        let free_space = stat.blocks_available() as u64 * stat.fragment_size() as u64;
                         if free_space < 50 * 1024 * 1024 {
                             // Space is critically low, return false to trigger fallback
                             return Ok(false);
