@@ -207,6 +207,7 @@ impl DataMasker {
             MaskRule::new_aws_key_rule(),
             MaskRule::new_jwt_rule(),
             MaskRule::new_generic_secret_rule(),
+            MaskRule::new_ssn_rule(),
         ];
 
         Self { rules }
@@ -292,6 +293,11 @@ static GENERIC_SECRET_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         .expect("Invalid generic secret regex")
 });
 
+
+/// US Social Security Number pattern — NNN-NN-NNNN
+static SSN_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\b\d{3}-\d{2}-\d{4}\b").expect("Invalid SSN regex"));
+
 impl MaskRule {
     fn new_email_rule() -> Self {
         Self {
@@ -361,6 +367,16 @@ impl MaskRule {
             name: "generic_secret".to_string(),
             pattern: GENERIC_SECRET_REGEX.clone(),
             replacement: "${1}***REDACTED***${3}".to_string(),
+            replace_count: 1,
+        }
+    }
+
+
+    fn new_ssn_rule() -> Self {
+        Self {
+            name: "ssn".to_string(),
+            pattern: SSN_REGEX.clone(),
+            replacement: "***-**-****".to_string(),
             replace_count: 1,
         }
     }

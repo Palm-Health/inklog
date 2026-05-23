@@ -253,7 +253,7 @@ impl LogRecord {
 
     /// Sensitive key patterns to mask (lowercase for case-insensitive matching)
     const SENSITIVE_KEY_PATTERNS: &[&str] =
-        &["password", "token", "secret", "key", "credential", "auth"];
+        &["password", "token", "secret", "key", "credential", "auth", "ssn", "social_security"];
 
     /// Checks if a key contains sensitive patterns
     fn is_sensitive_key(key: &str) -> bool {
