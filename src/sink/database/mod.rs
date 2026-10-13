@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 #[cfg(feature = "dbnexus")]
 use anyhow::Result;
 #[cfg(feature = "dbnexus")]
-use dbnexus::pool::DbPool;
+use dbnexus::DbPool;
 #[cfg(feature = "dbnexus")]
 use once_cell::sync::Lazy;
 #[cfg(feature = "dbnexus")]

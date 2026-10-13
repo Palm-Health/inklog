@@ -4,10 +4,10 @@
 // See LICENSE file in the project root for full license information.
 
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::Command;
 
-pub fn validate_config(config_path: &PathBuf) -> Result<()> {
+pub fn validate_config(config_path: &Path) -> Result<()> {
     println!("Validating configuration file: {}", config_path.display());
 
     if !config_path.exists() {
@@ -37,7 +37,7 @@ pub fn validate_config(config_path: &PathBuf) -> Result<()> {
 }
 
 #[cfg(feature = "confers")]
-fn validate_with_confers(config_path: &PathBuf) -> Result<()> {
+fn validate_with_confers(config_path: &Path) -> Result<()> {
     // Use TOML parsing for validation
     let content = std::fs::read_to_string(config_path)
         .with_context(|| format!("Failed to read config file: {}", config_path.display()))?;
@@ -48,7 +48,7 @@ fn validate_with_confers(config_path: &PathBuf) -> Result<()> {
     Ok(())
 }
 
-fn validate_toml_content(content: &str, config_path: &PathBuf) -> Result<()> {
+fn validate_toml_content(content: &str, config_path: &Path) -> Result<()> {
     let config: toml::Table = content
         .parse()
         .with_context(|| "Failed to parse TOML content")?;
@@ -426,7 +426,7 @@ fn validate_s3_archive(s3: &toml::Table) -> Result<()> {
     Ok(())
 }
 
-fn validate_sections(config: &toml::Table, _config_path: &PathBuf) -> Result<()> {
+fn validate_sections(config: &toml::Table, _config_path: &Path) -> Result<()> {
     // Valid sections (both naming conventions accepted)
     let valid_sections = [
         "global",

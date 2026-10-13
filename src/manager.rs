@@ -31,7 +31,6 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 #[cfg(feature = "aws")]
 use tokio::sync::Mutex as AsyncMutex;
-#[cfg(feature = "aws")]
 use tracing::error;
 #[cfg(any(feature = "aws", feature = "http"))]
 use tracing::info;
@@ -270,7 +269,7 @@ impl LoggerManager {
                 info!("Initializing S3 archive service");
 
                 #[cfg(feature = "dbnexus")]
-                let db_conn: Option<dbnexus::pool::DbPool> =
+                let db_conn: Option<dbnexus::DbPool> =
                     if let Some(ref db_cfg) = config.database_sink {
                         use dbnexus::DbPoolBuilder;
                         let db_result = DbPoolBuilder::new()
@@ -376,7 +375,7 @@ impl LoggerManager {
     /// }
     /// ```
     pub async fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, InklogError> {
-        let config = InklogConfig::load_file(path.as_ref()).map_err(|e| {
+        let config = InklogConfig::load_file_with_nested_env(path.as_ref()).map_err(|e| {
             InklogError::ConfigError(format!("Failed to load config from file: {}", e))
         })?;
         Self::with_config(config).await
@@ -404,7 +403,7 @@ impl LoggerManager {
     /// }
     /// ```
     pub async fn load() -> Result<Self, InklogError> {
-        let config = InklogConfig::load_sync()
+        let config = InklogConfig::from_search_paths()
             .map_err(|e| InklogError::ConfigError(format!("Failed to load config: {}", e)))?;
         Self::with_config(config).await
     }
@@ -931,7 +930,9 @@ impl LoggerManager {
                                 if !write_succeeded && consecutive_failures > 5 {
                                     if let Some(last_failure) = last_failure_time {
                                         if last_failure.elapsed() > Duration::from_secs(60) {
-                                            eprintln!("File sink: Triggering auto-recovery due to consecutive failures");
+                                            eprintln!(
+                                                "File sink: Triggering auto-recovery due to consecutive failures"
+                                            );
                                             // Attempt to recreate the sink
                                             if let Ok(new_sink) = FileSink::new(cfg_clone.clone()) {
                                                 sink = new_sink;
@@ -1036,7 +1037,9 @@ impl LoggerManager {
                                             if let Some(last_failure) = last_failure_time {
                                                 if last_failure.elapsed() > Duration::from_secs(60)
                                                 {
-                                                    eprintln!("Database sink: Triggering auto-recovery due to consecutive failures");
+                                                    eprintln!(
+                                                        "Database sink: Triggering auto-recovery due to consecutive failures"
+                                                    );
                                                     if let Ok(new_sink) =
                                                         DatabaseSink::new(&cfg_clone.clone())
                                                     {
@@ -1047,8 +1050,8 @@ impl LoggerManager {
                                                             "database", true, None,
                                                         );
                                                         eprintln!(
-                                                        "Database sink: Auto-recovery successful"
-                                                    );
+                                                            "Database sink: Auto-recovery successful"
+                                                        );
                                                     }
                                                 }
                                             }
@@ -1140,7 +1143,9 @@ impl LoggerManager {
                                     if !write_succeeded && consecutive_failures > 5 {
                                         if let Some(last_failure) = last_failure_time {
                                             if last_failure.elapsed() > Duration::from_secs(60) {
-                                                eprintln!("Database sink: Triggering auto-recovery due to consecutive failures");
+                                                eprintln!(
+                                                    "Database sink: Triggering auto-recovery due to consecutive failures"
+                                                );
                                                 if let Ok(new_sink) =
                                                     DatabaseSink::new(&cfg_clone.clone())
                                                 {

@@ -81,7 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **HTTP服务**: axum 0.6（可选）
 
 ### 兼容性
-- **Rust**: 1.70+
+- **Rust**: 1.88+
 - **平台**: Linux, macOS, Windows
 - **数据库**: SQLite, PostgreSQL, MySQL（通过SeaORM）
 - **云存储**: AWS S3兼容存储

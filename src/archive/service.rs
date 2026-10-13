@@ -15,7 +15,7 @@ use super::S3ArchiveManager;
 use crate::error::InklogError;
 use chrono::{DateTime, Datelike, Duration, Utc};
 #[cfg(feature = "dbnexus")]
-use dbnexus::pool::Session;
+use dbnexus::Session;
 use parking_lot::Mutex;
 #[cfg(feature = "dbnexus")]
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
@@ -1041,7 +1041,7 @@ mod tests {
     #[cfg(feature = "dbnexus")]
     async fn test_fetch_database_logs() {
         use chrono::{Duration, Utc};
-        use dbnexus::pool::DbPool;
+        use dbnexus::DbPool;
         use sea_orm::{ActiveModelTrait, ConnectionTrait, Schema, Set};
 
         let pool = DbPool::new("sqlite::memory:").await.unwrap();
@@ -1104,7 +1104,7 @@ mod tests {
     #[cfg(feature = "dbnexus")]
     async fn test_cleanup_old_database_logs() {
         use chrono::{Duration, Utc};
-        use dbnexus::pool::DbPool;
+        use dbnexus::DbPool;
         use sea_orm::{ActiveModelTrait, ConnectionTrait, EntityTrait, Schema, Set};
 
         let pool = DbPool::new("sqlite::memory:").await.unwrap();

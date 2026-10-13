@@ -2,6 +2,7 @@
 name = "inklog"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.88"
 authors = ["Kirky.X"]
 description = "Enterprise-grade Rust logging infrastructure"
 license = "MIT OR Apache-2.0"
@@ -18,10 +19,29 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(feature, values(\"permissi
 [features]
 default = ["aws", "http", "cli", "confers"]
 confers = []
-dbnexus = ["dep:dbnexus", "dep:sea-orm"]
+dbnexus = ["dep:dbnexus", "dep:sea-orm", "dep:sea-orm-macros"]
 http = ["dep:axum"]
 test-local = []
-aws = ["dep:aws-sdk-s3", "dep:aws-config", "dep:aws-types", "dep:aws-credential-types"]
+aws = [
+    "dep:aws-sdk-s3",
+    "dep:aws-config",
+    "dep:aws-types",
+    "dep:aws-credential-types",
+    "dep:aws-smithy-async",
+    "dep:aws-smithy-checksums",
+    "dep:aws-smithy-eventstream",
+    "dep:aws-smithy-http",
+    "dep:aws-smithy-http-client",
+    "dep:aws-smithy-json",
+    "dep:aws-smithy-observability",
+    "dep:aws-smithy-query",
+    "dep:aws-smithy-runtime",
+    "dep:aws-smithy-runtime-api",
+    "dep:aws-smithy-types",
+    "dep:aws-smithy-xml",
+    "dep:crc",
+    "dep:crc-fast",
+]
 cli = ["dep:clap", "dep:glob"]
 debug = []
 metrics = []
@@ -41,8 +61,7 @@ regex = "1.12"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = { version = "0.9" }
-confers = { path = "/home/dev/projects/confers", features = ["cli", "snapshot", "validation"] }
-validator = { version = "0.19", features = ["derive"] }
+confers = { git = "https://github.com/Kirky-X/confers.git", rev = "0daffe0283292e90bee0f36dfed66172bc328f68", default-features = false, features = ["toml", "env", "validation"] }
 thiserror = "2.0"
 anyhow = "1.0"
 num-traits = "0.2"
@@ -57,7 +76,7 @@ nix = { version = "0.31", features = ["fs"] }
 bytes = "1.11"
 dirs = "6.0"
 parking_lot = "0.12"
-oxcache = { path = "/home/dev/projects/oxcache" }
+oxcache = { git = "https://github.com/Kirky-X/oxcache.git", rev = "a726caeb17c09a605628af275c1edb39f8fdba2c" }
 moka = { version = "0.12", default-features = false, features = ["sync"] }
 dashmap = "6.1"
 zstd = "0.13"
@@ -67,12 +86,34 @@ base64 = "0.22"
 parquet = { version = "57.3", features = ["async"] }
 arrow-array = "57.3"
 arrow-schema = "57.3"
-dbnexus = { path = "/home/dev/projects/dbnexus", default-features = false, features = ["sqlite", "sql-parser", "config-env", "macros", "permission"], optional = true }
-sea-orm = { version = "2.0.0-rc.37", default-features = false, features = ["runtime-tokio-native-tls", "with-chrono"], optional = true }
-aws-sdk-s3 = { version = "1.127.0", features = ["rt-tokio"], optional = true }
-aws-config = { version = "1.8.15", features = ["behavior-version-latest", "rt-tokio"], optional = true }
-aws-types = { version = "1.3", optional = true }
-aws-credential-types = { version = "1.2", optional = true }
+# dbnexus currently requires its permission/cache pair for the session types
+# used by Inklog's database sink. SQL parser, macros, config-env, and the rest
+# of its default surface are intentionally disabled.
+dbnexus = { git = "https://github.com/Kirky-X/dbnexus.git", rev = "54515bd3ef56a9f2024c69740b3866618c5fe577", default-features = false, features = ["sqlite", "permission", "cache"], optional = true }
+sea-orm = { version = "=2.0.0-rc.37", default-features = false, features = ["runtime-tokio-native-tls", "with-chrono"], optional = true }
+sea-orm-macros = { version = "=2.0.0-rc.37", optional = true }
+aws-sdk-s3 = { version = "=1.122.0", default-features = false, features = ["rt-tokio", "http-1x", "default-https-client", "sigv4a"], optional = true }
+aws-config = { version = "=1.8.13", default-features = false, features = ["behavior-version-latest", "rt-tokio", "default-https-client", "credentials-process", "sso"], optional = true }
+aws-types = { version = "=1.3.11", default-features = false, optional = true }
+aws-credential-types = { version = "=1.2.11", default-features = false, optional = true }
+# Keep the AWS SDK graph on the newest releases that support the workspace's
+# Rust 1.88 toolchain. Cargo's MSRV-aware resolver currently selects newer
+# incompatible transitive releases for caret requirements, so these exact
+# constraints make the locked compatibility contract explicit.
+aws-smithy-async = { version = "=1.2.11", default-features = false, optional = true }
+aws-smithy-checksums = { version = "=0.64.3", default-features = false, optional = true }
+aws-smithy-eventstream = { version = "=0.60.18", default-features = false, optional = true }
+aws-smithy-http = { version = "=0.63.3", default-features = false, optional = true }
+aws-smithy-http-client = { version = "=1.1.9", default-features = false, optional = true }
+aws-smithy-json = { version = "=0.62.3", default-features = false, optional = true }
+aws-smithy-observability = { version = "=0.2.4", default-features = false, optional = true }
+aws-smithy-query = { version = "=0.60.13", default-features = false, optional = true }
+aws-smithy-runtime = { version = "=1.10.0", default-features = false, optional = true }
+aws-smithy-runtime-api = { version = "=1.11.3", default-features = false, optional = true }
+aws-smithy-types = { version = "=1.4.3", default-features = false, optional = true }
+aws-smithy-xml = { version = "=0.60.13", default-features = false, optional = true }
+crc = { version = "=3.3.0", default-features = false, optional = true }
+crc-fast = { version = "=1.9.0", default-features = false, optional = true }
 flate2 = "1.1"
 brotli = "8.0"
 lz4 = "1.28"
@@ -107,3 +148,7 @@ harness = false
 [[bin]]
 name = "inklog-cli"
 path = "src/cli/mod.rs"
+required-features = ["cli"]
+
+[patch.crates-io]
+oxcache = { git = "https://github.com/Kirky-X/oxcache.git", rev = "a726caeb17c09a605628af275c1edb39f8fdba2c" }

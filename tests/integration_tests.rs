@@ -23,11 +23,6 @@ use inklog::LoggerManager;
 use std::time::Duration;
 use tracing::{error, info};
 
-#[cfg(feature = "dbnexus")]
-use inklog::sink::database::DatabaseSink;
-#[cfg(feature = "dbnexus")]
-use inklog::sink::LogSink;
-
 #[tokio::test]
 #[ignore] // Uses global subscriber, may hang in parallel test execution
 async fn test_e2e_logging() {
@@ -405,8 +400,6 @@ use inklog::config::DatabaseDriver as BatchDatabaseDriver;
 use inklog::log_record::LogRecord as BatchLogRecord;
 #[cfg(feature = "dbnexus")]
 use inklog::sink::database::DatabaseSink as BatchDatabaseSink;
-#[cfg(feature = "dbnexus")]
-use inklog::sink::LogSink as BatchLogSink;
 #[cfg(feature = "dbnexus")]
 use inklog::DatabaseSinkConfig as BatchDatabaseSinkConfig;
 #[cfg(feature = "dbnexus")]
@@ -1299,9 +1292,7 @@ fn verify_database_sink_sqlite() {
 fn create_logs_table(url: &str) -> Result<(), String> {
     let rt = tokio::runtime::Runtime::new().map_err(|e| e.to_string())?;
     rt.block_on(async {
-        let pool = dbnexus::pool::DbPool::new(url)
-            .await
-            .map_err(|e| e.to_string())?;
+        let pool = dbnexus::DbPool::new(url).await.map_err(|e| e.to_string())?;
         let session = pool.get_session("admin").await.map_err(|e| e.to_string())?;
 
         use inklog::sink::entity::sea_orm::{ConnectionTrait, Schema};

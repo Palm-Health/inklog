@@ -381,10 +381,7 @@ let config = InklogConfig {
         compress: false,  // 加密和压缩互斥
         ..Default::default()
     }),
-    global: GlobalConfig {
-        masking_enabled: true,  // 同时启用数据脱敏
-        ..Default::default()
-    },
+    global: GlobalConfig::default(),
     ..Default::default()
 };
 
@@ -573,10 +570,8 @@ impl LogRecord {
     pub fn from_event(event: &Event) -> Self {
         let mut record = /* ... */;
 
-        // 创建日志记录时自动应用脱敏
-        if config.global.masking_enabled {
-            record.mask_sensitive_fields();
-        }
+        // 标准 adapter 在分发前无条件应用脱敏
+        record.mask_sensitive_fields();
 
         record
     }
@@ -602,19 +597,24 @@ impl LogRecord {
 }
 ```
 
-#### 配置启用
+#### 配置兼容字段
 
 ```toml
 # inklog_config.toml
 [global]
-masking_enabled = true  # 启用数据脱敏 (默认: true)
+masking_enabled = true  # 已弃用的无操作兼容字段；不控制强制脱敏
 ```
 
 **环境变量**:
 
 ```bash
-export INKLOG_MASKING_ENABLED=true
+export INKLOG_GLOBAL_MASKING_ENABLED=true  # 已弃用的无操作兼容覆盖
 ```
+
+标准 tracing 和 `log` adapter 路径始终在 channel 分发前执行 PHI 与凭证脱敏。
+全局 `masking_enabled` 字段及其环境变量只为配置兼容性保留。只有 `ConsoleSink`
+和 `FileSink` 的同名开关控制额外的 Sink 层脱敏；直接构造 `LogRecord` 的调用方
+必须在发送到任何 Sink 前调用 `mask_sensitive_fields()`。
 
 ### 使用示例
 
@@ -623,13 +623,7 @@ export INKLOG_MASKING_ENABLED=true
 ```rust
 use inklog::{InklogConfig, config::GlobalConfig, LoggerManager};
 
-let config = InklogConfig {
-    global: GlobalConfig {
-        masking_enabled: true,  // 启用脱敏
-        ..Default::default()
-    },
-    ..Default::default()
-};
+let config = InklogConfig::default();
 
 let logger = LoggerManager::with_config(config).await?;
 
@@ -1342,7 +1336,6 @@ pub async fn export_user_logs(
 let config = InklogConfig {
     global: GlobalConfig {
         level: "warn".to_string(),  // 不记录 DEBUG/TRACE 信息
-        masking_enabled: true,      // 自动脱敏 PII
         ..Default::default()
     },
     ..Default::default()
@@ -1452,7 +1445,7 @@ log::info!("Payment: card_number=6222021234567890123, cvv=123");
 
 #### GDPR 合规性
 
-- [ ] 启用数据脱敏 (`INKLOG_MASKING_ENABLED=true`)
+- [ ] 使用标准 tracing 或 `log` adapter 路径（分发前强制脱敏）
 - [ ] 配置数据保留期限 (`retention_days`)
 - [ ] 实施加密日志 (`encrypt=true`)
 - [ ] 定期清理过期日志 (`cargo run --example cleanup`)
@@ -1674,11 +1667,11 @@ let client = aws_sdk_s3::Client::new(&config);
 
 ### 5. 日志配置安全
 
-#### 启用数据脱敏
+#### 强制数据脱敏
 
 ```toml
 [global]
-masking_enabled = true  # 默认启用
+# masking_enabled 是已弃用的无操作兼容字段；标准 adapter 始终执行强制脱敏
 
 [global.log_format]
 # 自定义格式,避免记录敏感信息
@@ -1956,7 +1949,7 @@ log::error!(
 [global]
 level = "info"
 format = "{timestamp} [{level}] {target} - {message}"
-masking_enabled = true  # 启用数据脱敏
+# masking_enabled 是已弃用的无操作兼容字段；标准 adapter 始终执行强制脱敏
 
 [console_sink]
 enabled = true
@@ -2006,7 +1999,7 @@ kms_key_id = "arn:aws:kms:us-west-2:123456789012:key/12345678-1234-1234-1234-123
 ```bash
 # 全局配置
 INKLOG_LEVEL=info
-INKLOG_MASKING_ENABLED=true
+# INKLOG_GLOBAL_MASKING_ENABLED 是已弃用的无操作兼容覆盖
 
 # 文件加密
 INKLOG_ENCRYPTION_KEY=$(openssl rand -base64 32)
@@ -2068,8 +2061,8 @@ inklog decrypt \
 # 1. 运行所有测试
 cargo test --all-features
 
-# 2. 运行 Clippy (检查代码质量)
-cargo clippy --all-targets --all-features -- -D warnings
+# 2. 运行 Clippy（除历史格式化提示外，其余警告均视为错误）
+cargo clippy --all-targets --all-features -- -D warnings --force-warn clippy::uninlined-format-args
 
 # 3. 格式检查
 cargo fmt --all -- --check

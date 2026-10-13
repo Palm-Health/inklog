@@ -366,59 +366,57 @@ pub async fn with_watch() -> Result<Self, InklogError>
 
 ##### `from_file`
 
-从指定路径加载配置文件（需要 `confers` 功能）。
+从指定路径加载配置文件，并在 TOML 值之上应用严格校验的嵌套
+`INKLOG_*` 环境变量覆盖。
 
 **签名**
 ```rust
-#[cfg(feature = "confers")]
-pub fn from_file<P: AsRef<std::path::Path>>(path: P) -> Result<Self, InklogError>
+pub async fn from_file<P: AsRef<std::path::Path>>(path: P) -> Result<Self, InklogError>
 ```
 
 **参数**
 - `path` - 配置文件路径
 
 **返回值**
-- `Ok(InklogConfig)` - 加载的配置
+- `Ok(LoggerManager)` - 已使用加载配置初始化的管理器
 - `Err(InklogError)` - 加载失败
 
 **示例**
 ```rust
-#[cfg(feature = "confers")]
-{
-    let config = InklogConfig::from_file("inklog_config.toml")?;
-    let logger = LoggerManager::with_config(config).await?;
-}
+let logger = LoggerManager::from_file("inklog_config.toml").await?;
 ```
 
 ---
 
 ##### `load`
 
-从默认位置加载配置文件（需要 `confers` 功能）。
+按固定优先级搜索配置文件，并在所选 TOML 或默认配置之上应用严格校验的
+嵌套 `INKLOG_*` 环境变量覆盖。
 
 **签名**
 ```rust
-#[cfg(feature = "confers")]
-pub fn load() -> Result<Self, InklogError>
+pub async fn load() -> Result<Self, InklogError>
 ```
 
 **返回值**
-- `Ok(InklogConfig)` - 加载的配置
+- `Ok(LoggerManager)` - 已使用加载配置初始化的管理器
 - `Err(InklogError)` - 加载失败
 
 **默认查找位置**
-- `/etc/inklog/config.toml`
+- `$INKLOG_CONFIG_PATH`（若已设置，必须指向可读文件；失败时不会回退）
 - `./inklog_config.toml`
-- `./config/inklog.toml`
+- `~/.config/inklog/config.toml`
+- `/etc/inklog/config.toml`
 
 **示例**
 ```rust
-#[cfg(feature = "confers")]
-{
-    let config = InklogConfig::load()?;
-    let logger = LoggerManager::with_config(config).await?;
-}
+let logger = LoggerManager::load().await?;
 ```
+
+需要直接取得配置值时，使用 `InklogConfig::load_file_with_nested_env(path)`、
+`InklogConfig::from_search_paths()` 或 `InklogConfig::load_with_nested_env()`。
+`#[derive(Config)]` 生成的 `load()`、`load_sync()` 和 `load_file()` 仅提供
+Confers 的通用平面/default 加载行为，不实现 Inklog 的嵌套环境变量和搜索路径契约。
 
 ---
 
@@ -842,7 +840,7 @@ pub struct GlobalConfig {
 |------|------|----------|------|
 | `level` | `String` | `"info"` | 日志级别：`trace`、`debug`、`info`、`warn`、`error` |
 | `format` | `String` | `"{timestamp} [{level}] {target} - {message}"` | 日志格式模板 |
-| `masking_enabled` | `bool` | `true` | 是否启用数据脱敏 |
+| `masking_enabled` | `bool` | `true` | 已弃用的无操作兼容字段；adapter 始终执行 PHI/凭证脱敏 |
 
 #### 格式变量
 
@@ -863,7 +861,7 @@ use inklog::config::GlobalConfig;
 let global = GlobalConfig {
     level: "debug".to_string(),
     format: "[{timestamp}] [{level}] {target} - {message}".to_string(),
-    masking_enabled: true,
+    masking_enabled: true, // 已弃用的无操作兼容字段
 };
 ```
 

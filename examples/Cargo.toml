@@ -2,6 +2,8 @@
 name = "inklog-examples"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
 publish = false
 description = "Examples for inklog - Enterprise-grade Rust logging infrastructure"
 
@@ -10,7 +12,7 @@ dbnexus = ["inklog/dbnexus", "dep:dbnexus"]
 
 [dependencies]
 inklog = { path = "..", features = ["dbnexus"] }
-dbnexus = { path = "/home/dev/projects/dbnexus", features = ["sqlite"], optional = true }
+dbnexus = { git = "https://github.com/Kirky-X/dbnexus.git", rev = "54515bd3ef56a9f2024c69740b3866618c5fe577", default-features = false, features = ["sqlite", "permission", "cache"], optional = true }
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
 anyhow = "1.0"
@@ -22,6 +24,9 @@ aes-gcm = "0.10.3"
 base64 = "0.22.1"
 rand = "0.10.0"
 tempfile = "3.27.0"
+
+[patch.crates-io]
+oxcache = { git = "https://github.com/Kirky-X/oxcache.git", rev = "a726caeb17c09a605628af275c1edb39f8fdba2c" }
 
 [[bin]]
 name = "console"

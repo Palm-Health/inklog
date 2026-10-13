@@ -234,6 +234,13 @@ impl DataMasker {
             Value::String(s) => {
                 *s = self.mask(s);
             }
+            Value::Number(number)
+                if number
+                    .as_u64()
+                    .is_some_and(|value| (100_000_000..=999_999_999).contains(&value)) =>
+            {
+                *value = Value::String("***-**-****".to_string());
+            }
             Value::Array(arr) => {
                 for item in arr {
                     self.mask_value(item);
@@ -293,10 +300,10 @@ static GENERIC_SECRET_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         .expect("Invalid generic secret regex")
 });
 
-
-/// US Social Security Number pattern — NNN-NN-NNNN
-static SSN_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\b\d{3}-\d{2}-\d{4}\b").expect("Invalid SSN regex"));
+/// US Social Security Number patterns with bounded dashed, spaced, or compact digits.
+static SSN_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\b(?:\d{3}-\d{2}-\d{4}|\d{3} \d{2} \d{4}|\d{9})\b").expect("Invalid SSN regex")
+});
 
 impl MaskRule {
     fn new_email_rule() -> Self {
@@ -371,7 +378,6 @@ impl MaskRule {
         }
     }
 
-
     fn new_ssn_rule() -> Self {
         Self {
             name: "ssn".to_string(),
@@ -397,6 +403,10 @@ impl MaskRule {
             // For patterns with capture groups, use the replacement with group references
             self.pattern
                 .replace(text, self.replacement.as_str())
+                .to_string()
+        } else if self.name == "ssn" {
+            self.pattern
+                .replace_all(text, self.replacement.as_str())
                 .to_string()
         } else {
             // For email and phone, use the standard replacement
@@ -527,6 +537,24 @@ mod tests {
         assert_eq!(value["email"], "**@**.***");
         assert_eq!(value["phone"], "***-****-****");
         assert_eq!(value["name"], "John");
+    }
+
+    #[test]
+    fn test_mask_value_masks_only_nine_digit_unsigned_integers() {
+        let masker = DataMasker::new();
+        let mut value = serde_json::json!({
+            "patient_context": 345678901u64,
+            "eight_digit_control": 34567890u64,
+            "ten_digit_control": 3456789012u64,
+            "negative_control": -345678901i64
+        });
+
+        masker.mask_value(&mut value);
+
+        assert_eq!(value["patient_context"], "***-**-****");
+        assert_eq!(value["eight_digit_control"], 34567890u64);
+        assert_eq!(value["ten_digit_control"], 3456789012u64);
+        assert_eq!(value["negative_control"], -345678901i64);
     }
 
     #[test]

@@ -63,7 +63,7 @@ impl LogAdapter {
 
     /// 将 `log::Record` 转换为 `LogRecord`
     fn record_to_log_record(&self, record: &Record) -> LogRecord {
-        LogRecord {
+        let mut log_record = LogRecord {
             timestamp: Utc::now(),
             level: Self::level_to_string(record.level()).to_string(),
             target: record.target().to_string(),
@@ -75,7 +75,9 @@ impl LogAdapter {
                 .unwrap_or("unknown")
                 .to_string(),
             fields: Default::default(),
-        }
+        };
+        log_record.mask_sensitive_fields();
+        log_record
     }
 }
 
@@ -174,8 +176,31 @@ impl log::Log for LogLogger {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::ConsoleSinkConfig;
+    use crate::sink::console::ConsoleSink;
+    use crate::sink::LogSink;
+    use crate::template::LogTemplate;
     use crossbeam_channel::bounded;
     use log::Log;
+    use std::io::{self, Write};
+    use std::sync::Mutex;
+
+    #[derive(Clone, Default)]
+    struct SharedWriter(Arc<Mutex<Vec<u8>>>);
+
+    impl Write for SharedWriter {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.0
+                .lock()
+                .expect("capture lock")
+                .extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
 
     #[test]
     fn test_level_to_string() {
@@ -251,6 +276,50 @@ mod tests {
     }
 
     #[test]
+    fn log_adapter_masks_before_default_console_output() {
+        let (console_tx, console_rx) = bounded(4);
+        let (async_tx, _async_rx) = bounded(4);
+        let adapter = LogAdapter::new(console_tx, async_tx, Arc::new(Metrics::new()));
+
+        log::set_max_level(log::LevelFilter::Info);
+        let record = log::Record::builder()
+            .target("test::adapter")
+            .level(Level::Info)
+            .args(format_args!(
+                "message 123-45-6789 234 56 7890 345678901 controls 12345678 1234567890 01234567890 abc123456789def"
+            ))
+            .build();
+        adapter.log(&record);
+
+        let record = console_rx.recv().expect("console record");
+        let capture = SharedWriter::default();
+        let output = Arc::clone(&capture.0);
+        let mut sink = ConsoleSink::new(
+            ConsoleSinkConfig {
+                colored: false,
+                masking_enabled: false,
+                ..Default::default()
+            },
+            LogTemplate::new("{message}"),
+        );
+        sink.set_writer_for_test(Box::new(capture));
+        sink.write(&record).expect("console output");
+
+        let output = String::from_utf8(output.lock().expect("capture lock").clone())
+            .expect("utf-8 console output");
+        assert_eq!(output.matches("***-**-****").count(), 3);
+        for raw in ["123-45-6789", "234 56 7890", "345678901"] {
+            assert!(!output.contains(raw), "raw SSN leaked: {raw}");
+        }
+        for control in ["12345678", "1234567890", "01234567890", "abc123456789def"] {
+            assert!(
+                output.contains(control),
+                "bounded control changed: {control}"
+            );
+        }
+    }
+
+    #[test]
     fn test_log_adapter_handles_full_channel() {
         // Create channels with capacity 1
         let (console_tx, console_rx) = bounded(1);
@@ -262,14 +331,15 @@ mod tests {
         log::set_max_level(log::LevelFilter::Info);
 
         // Send multiple records - should not panic even when channels are full
-        for i in 0..5 {
+        for _ in 0..5 {
             let metadata = log::Metadata::builder()
                 .target("test::adapter")
                 .level(Level::Info)
                 .build();
-            let msg = format!("Test message {}", i);
-            let args = format_args!("{}", msg);
-            let record = log::Record::builder().metadata(metadata).args(args).build();
+            let record = log::Record::builder()
+                .metadata(metadata)
+                .args(format_args!("Test message"))
+                .build();
             adapter.log(&record);
         }
 

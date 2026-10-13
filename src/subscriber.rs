@@ -139,9 +139,31 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::ConsoleSinkConfig;
+    use crate::sink::console::ConsoleSink;
+    use crate::sink::LogSink;
+    use crate::template::LogTemplate;
     use crossbeam_channel::bounded;
+    use std::io::{self, Write};
     use tracing::subscriber::with_default;
     use tracing_subscriber::prelude::*;
+
+    #[derive(Clone, Default)]
+    struct SharedWriter(Arc<Mutex<Vec<u8>>>);
+
+    impl Write for SharedWriter {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.0
+                .lock()
+                .expect("capture lock")
+                .extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
 
     #[test]
     fn test_on_event_sends_to_channels() {
@@ -167,6 +189,49 @@ mod tests {
         assert_eq!(async_received.level, "INFO");
         assert_eq!(async_received.target, "test::subscriber");
         assert_eq!(async_received.message, "hello");
+    }
+
+    #[test]
+    fn tracing_path_masks_before_default_console_output() {
+        let (console_tx, console_rx) = bounded(4);
+        let (async_tx, _async_rx) = bounded(4);
+        let layer = LoggerSubscriber::new(console_tx, async_tx, Arc::new(Metrics::new()));
+        let registry = tracing_subscriber::registry().with(layer);
+
+        with_default(registry, || {
+            tracing::info!(
+                patient_context = "field 456-78-9012 567 89 0123 678901234",
+                "message 123-45-6789 234 56 7890 345678901"
+            );
+        });
+
+        let record = console_rx.recv().expect("console record");
+        let capture = SharedWriter::default();
+        let output = Arc::clone(&capture.0);
+        let mut sink = ConsoleSink::new(
+            ConsoleSinkConfig {
+                colored: false,
+                masking_enabled: false,
+                ..Default::default()
+            },
+            LogTemplate::new("{message} {fields}"),
+        );
+        sink.set_writer_for_test(Box::new(capture));
+        sink.write(&record).expect("console output");
+
+        let output = String::from_utf8(output.lock().expect("capture lock").clone())
+            .expect("utf-8 console output");
+        assert_eq!(output.matches("***-**-****").count(), 6);
+        for raw in [
+            "123-45-6789",
+            "234 56 7890",
+            "345678901",
+            "456-78-9012",
+            "567 89 0123",
+            "678901234",
+        ] {
+            assert!(!output.contains(raw), "raw SSN leaked: {raw}");
+        }
     }
 
     #[test]

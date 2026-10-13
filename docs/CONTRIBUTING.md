@@ -101,9 +101,9 @@ git push origin feature/your-feature
 
 | 要求 | 最低版本 | 推荐版本 |
 |------|---------|---------|
-| Rust | 1.75.0 | 1.85.0+ |
+| Rust | 1.88.0 | stable |
 | Git | 2.0 | 最新版 |
-| Cargo | 1.75.0 | 1.85.0+ |
+| Cargo | 1.88.0 | stable |
 | 内存 | 4GB | 8GB+ |
 | 磁盘 | 2GB | 5GB+ |
 
@@ -118,10 +118,10 @@ cargo --version
 rustup update stable
 
 # 安装特定版本
-rustup install 1.75.0
+rustup install 1.88.0
 
 # 设置默认版本
-rustup default 1.75.0
+rustup default 1.88.0
 
 # 查看已安装版本
 rustup toolchain list
@@ -393,17 +393,18 @@ cargo fmt -p inklog
 
 ### Clippy 检查
 
-Clippy 是 Rust 的 Lint 工具,我们将其警告视为错误:
+Clippy 是 Rust 的 Lint 工具。仓库 CI 将所有警告视为错误，唯一例外是历史遗留的
+`clippy::uninlined-format-args` 格式化提示；该提示仍以 `--force-warn` 明确显示：
 
 ```bash
-# 运行 Clippy (所有警告作为错误)
-cargo clippy --all-targets --all-features -- -D warnings
+# 运行 Clippy（除上述历史格式化提示外，其余警告均视为错误）
+cargo clippy --all-targets --all-features -- -D warnings --force-warn clippy::uninlined-format-args
 
-# 仅检查库代码
-cargo clippy --lib --all-features -- -D warnings
+# 仅检查库代码（采用相同的窄例外）
+cargo clippy --lib --all-features -- -D warnings --force-warn clippy::uninlined-format-args
 
-# 允许特定警告(谨慎使用)
-cargo clippy --all-features -- -D warnings --allow clippy::too_many_arguments
+# 本地临时允许另一个特定警告（不属于仓库 CI 策略，谨慎使用）
+cargo clippy --all-features -- -D warnings --force-warn clippy::uninlined-format-args --allow clippy::too_many_arguments
 ```
 
 ### 命名约定
@@ -722,7 +723,7 @@ git checkout -b feature/your-feature
 cargo test --all-features
 
 # 运行 Clippy
-cargo clippy --all-targets --all-features -- -D warnings
+cargo clippy --all-targets --all-features -- -D warnings --force-warn clippy::uninlined-format-args
 
 # 格式化代码
 cargo fmt --all
@@ -944,7 +945,7 @@ git push origin feature/your-feature
 ## 环境
 
 - Inklog 版本: 0.1.0
-- Rust 版本: 1.75.0
+- Rust 版本: 1.88.0
 - 操作系统: Linux / macOS / Windows
 - 特性标志: aws, http, cli
 
@@ -1019,7 +1020,7 @@ cargo watch -x 'test --all-features'
 
 # 完整检查
 cargo fmt --all -- --check
-cargo clippy --all-targets --all-features -- -D warnings
+cargo clippy --all-targets --all-features -- -D warnings --force-warn clippy::uninlined-format-args
 cargo test --all-features
 
 # 发布准备
