@@ -25,7 +25,7 @@
   </a>
   <!-- Rust 版本 -->
   <a href="https://www.rust-lang.org/">
-    <img src="https://img.shields.io/badge/rust-1.75+-orange.svg" alt="Rust 1.75+" style="display:inline;margin:0 4px;">
+    <img src="https://img.shields.io/badge/rust-1.88+-orange.svg" alt="Rust 1.88+" style="display:inline;margin:0 4px;">
   </a>
 </p>
 
@@ -342,7 +342,6 @@ let config = InklogConfig {
     global: GlobalConfig {
         level: "debug".into(),
         format: format_string.to_string(),
-        masking_enabled: true,
         ..Default::default()
     },
     ..Default::default()
@@ -617,7 +616,6 @@ let config = InklogConfig {
     global: GlobalConfig {
         level: "debug".into(),
         format: format_string.to_string(),
-        masking_enabled: true,
         ..Default::default()
     },
     ..Default::default()
@@ -638,7 +636,6 @@ let config = InklogConfig {
     global: GlobalConfig {
         level: "info".into(),
         format: "{timestamp} {level} {message}".to_string(),
-        masking_enabled: true,  // 启用 PII 脱敏
         ..Default::default()
     },
     ..Default::default()
@@ -650,6 +647,11 @@ let _logger = LoggerManager::with_config(config).await?;
 log::info!("用户邮箱: user@example.com");
 // 输出: 用户邮箱: ***@***.***
 ```
+
+标准 tracing 和 `log` adapter 路径会在记录进入 Sink channel 前强制执行 PHI 与凭证脱敏。
+已弃用的全局 `masking_enabled` 兼容字段为无操作字段；只有 `ConsoleSink` 和 `FileSink`
+的同名开关控制可选的第二次脱敏。直接构造 `LogRecord` 的代码必须先调用
+`mask_sensitive_fields()`，再把记录发送给任何 Sink。
 
 </td>
 </tr>
@@ -837,8 +839,8 @@ cargo fmt --all
 # 检查格式而不修改
 cargo fmt --all -- --check
 
-# 运行 Clippy (警告视为错误)
-cargo clippy --all-targets --all-features -- -D warnings
+# 运行 Clippy（除历史格式化提示外，其余警告均视为错误）
+cargo clippy --all-targets --all-features -- -D warnings --force-warn clippy::uninlined-format-args
 ```
 
 ### 安全审计

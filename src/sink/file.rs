@@ -32,6 +32,17 @@ use tracing::{debug, error, info, warn};
 // 类型别名，保持向后兼容
 pub use super::circuit_breaker::{CircuitBreakerConfig, CircuitState};
 
+fn normalize_statfs_block_count<T>(value: T) -> Result<u64, InklogError>
+where
+    u64: TryFrom<T>,
+{
+    u64::try_from(value).map_err(|_| {
+        InklogError::IoError(std::io::Error::other(
+            "filesystem returned an invalid block count",
+        ))
+    })
+}
+
 /// 文件日志接收器
 ///
 /// 提供基于文件的日志输出功能，支持：
@@ -410,8 +421,10 @@ impl FileSink {
         if let Some(parent) = self.config.path.parent() {
             if let Ok(_metadata) = fs::metadata(parent) {
                 if let Ok(stat) = nix::sys::statfs::statfs(parent) {
-                    let total_blocks = stat.blocks();
-                    let available_blocks = stat.blocks_available();
+                    // `statfs` uses platform-specific integer widths. Normalize before
+                    // multiplying so this compiles consistently on macOS and Linux.
+                    let total_blocks = normalize_statfs_block_count(stat.blocks())?;
+                    let available_blocks = normalize_statfs_block_count(stat.blocks_available())?;
 
                     // 获取块大小
                     let block_size = stat.block_size() as u64;

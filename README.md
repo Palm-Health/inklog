@@ -25,7 +25,7 @@
   </a>
   <!-- Rust Version -->
   <a href="https://www.rust-lang.org/">
-    <img src="https://img.shields.io/badge/rust-1.75+-orange.svg" alt="Rust 1.75+" style="display:inline;margin:0 4px;">
+    <img src="https://img.shields.io/badge/rust-1.88+-orange.svg" alt="Rust 1.88+" style="display:inline;margin:0 4px;">
   </a>
 </p>
 
@@ -342,7 +342,6 @@ let config = InklogConfig {
     global: GlobalConfig {
         level: "debug".into(),
         format: format_string.to_string(),
-        masking_enabled: true,
         ..Default::default()
     },
     ..Default::default()
@@ -617,7 +616,6 @@ let config = InklogConfig {
     global: GlobalConfig {
         level: "debug".into(),
         format: format_string.to_string(),
-        masking_enabled: true,
         ..Default::default()
     },
     ..Default::default()
@@ -638,7 +636,6 @@ let config = InklogConfig {
     global: GlobalConfig {
         level: "info".into(),
         format: "{timestamp} {level} {message}".to_string(),
-        masking_enabled: true,  // Enable PII masking
         ..Default::default()
     },
     ..Default::default()
@@ -650,6 +647,12 @@ let _logger = LoggerManager::with_config(config).await?;
 log::info!("User email: user@example.com");
 // Output: User email: ***@***.***
 ```
+
+PHI and credential masking is mandatory on the standard tracing and `log`
+adapter paths before records enter sink channels. The deprecated global
+`masking_enabled` compatibility field is a no-op. Only the `ConsoleSink` and
+`FileSink` flags control an optional second pass. Code that constructs `LogRecord` directly must call
+`mask_sensitive_fields()` before sending it to any sink.
 
 </td>
 </tr>
@@ -837,21 +840,24 @@ cargo fmt --all
 # Check formatting without changes
 cargo fmt --all -- --check
 
-# Run Clippy (warnings as errors)
-cargo clippy --all-targets --all-features -- -D warnings
+# Run Clippy (all warnings fail except the legacy formatting-modernization lint)
+cargo clippy --all-targets --all-features -- -D warnings --force-warn clippy::uninlined-format-args
 ```
 
 ### Security Audit
 
 ```bash
 # Run cargo deny for security checks
-cargo deny check
+cargo deny --all-features --locked check
 
 # Check for advisories
-cargo deny check advisories
+cargo deny --all-features --locked check advisories
 
 # Check for banned licenses
-cargo deny check bans
+cargo deny --all-features --locked check bans
+
+# Audit the standalone examples lockfile too
+cargo deny --manifest-path examples/Cargo.toml --config deny.toml --all-features --locked check
 ```
 
 ### Integration Tests

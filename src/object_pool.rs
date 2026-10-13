@@ -104,7 +104,7 @@ pub struct PoolMetrics {
 pub struct ObjectPool<K, V>
 where
     K: oxcache::CacheKey + Send + Sync + 'static,
-    V: oxcache::Cacheable + Send + Sync + Clone + 'static,
+    V: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + Clone + 'static,
 {
     /// The underlying oxcache async cache
     cache: Arc<Cache<K, V>>,
@@ -117,7 +117,7 @@ where
 impl<K, V> ObjectPool<K, V>
 where
     K: oxcache::CacheKey + Send + Sync + 'static,
-    V: oxcache::Cacheable + Send + Sync + Clone + 'static,
+    V: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + Clone + 'static,
 {
     /// Create a new object pool with default configuration (capacity: 1024)
     pub fn new() -> Self {
@@ -323,7 +323,7 @@ where
 impl<K, V> Default for ObjectPool<K, V>
 where
     K: oxcache::CacheKey + Send + Sync + 'static,
-    V: oxcache::Cacheable + Send + Sync + Clone + 'static,
+    V: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + Clone + 'static,
 {
     fn default() -> Self {
         Self::new()
@@ -335,7 +335,7 @@ where
 pub struct ObjectPoolBuilder<K, V>
 where
     K: oxcache::CacheKey + Send + Sync + 'static,
-    V: oxcache::Cacheable + Send + Sync + Clone + 'static,
+    V: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + Clone + 'static,
 {
     /// Maximum capacity of the pool
     capacity: usize,
@@ -349,7 +349,7 @@ where
 impl<K, V> ObjectPoolBuilder<K, V>
 where
     K: oxcache::CacheKey + Send + Sync + 'static,
-    V: oxcache::Cacheable + Send + Sync + Clone + 'static,
+    V: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + Clone + 'static,
 {
     /// Create a new builder with default configuration
     pub fn new() -> Self {
@@ -389,7 +389,7 @@ where
 impl<K, V> Default for ObjectPoolBuilder<K, V>
 where
     K: oxcache::CacheKey + Send + Sync + 'static,
-    V: oxcache::Cacheable + Send + Sync + Clone + 'static,
+    V: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + Clone + 'static,
 {
     fn default() -> Self {
         Self::new()

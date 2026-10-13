@@ -35,9 +35,9 @@ use tracing::{Event, Level};
 ///
 /// # Sensitive Data
 ///
-/// The struct includes built-in support for masking sensitive information through
-/// [`mask_sensitive_fields()`](Self::mask_sensitive_fields). This should be called
-/// by sinks before persisting logs to external storage.
+/// Records created by the tracing and `log` adapters are masked before they enter
+/// any sink channel. Call [`mask_sensitive_fields()`](Self::mask_sensitive_fields)
+/// before routing records assembled directly with public fields.
 ///
 /// # Example
 ///
@@ -198,10 +198,9 @@ impl LogRecord {
     ///
     /// # Sensitive Data
     ///
-    /// For performance reasons, this method does **NOT** automatically mask
-    /// sensitive fields. Callers who need masking (e.g., FileSink, DatabaseSink)
-    /// should call [`mask_sensitive_fields()`](Self::mask_sensitive_fields) in
-    /// their write() method. ConsoleSink may optionally call it based on configuration.
+    /// Message text and structured field values are masked before the record is
+    /// returned. This keeps every downstream channel and sink behind the same
+    /// fail-closed boundary.
     ///
     /// # Arguments
     ///
@@ -244,16 +243,21 @@ impl LogRecord {
         record.line = metadata.line();
         record.thread_id = format!("{:?}", std::thread::current().id());
 
-        // NOTE: mask_sensitive_fields() is NOT called here for performance.
-        // Callers who need masking (e.g., FileSink, DatabaseSink) should call
-        // record.mask_sensitive_fields() in their write() method.
-        // ConsoleSink may optionally call it based on configuration.
+        record.mask_sensitive_fields();
         record
     }
 
     /// Sensitive key patterns to mask (lowercase for case-insensitive matching)
-    const SENSITIVE_KEY_PATTERNS: &[&str] =
-        &["password", "token", "secret", "key", "credential", "auth", "ssn", "social_security"];
+    const SENSITIVE_KEY_PATTERNS: &[&str] = &[
+        "password",
+        "token",
+        "secret",
+        "key",
+        "credential",
+        "auth",
+        "ssn",
+        "social_security",
+    ];
 
     /// Checks if a key contains sensitive patterns
     fn is_sensitive_key(key: &str) -> bool {
@@ -277,10 +281,8 @@ impl LogRecord {
     ///
     /// # When to Use
     ///
-    /// This method should be called by sinks before persisting logs to external
-    /// storage (files, databases, S3). It is intentionally NOT called in
-    /// [`from_event()`](Self::from_event) for performance reasons, and because
-    /// console output may not require masking.
+    /// The tracing and `log` adapters call this before channel fan-out. Call it
+    /// explicitly for records assembled directly with public fields.
     ///
     /// # Performance
     ///

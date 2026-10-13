@@ -41,6 +41,11 @@ impl ConsoleSink {
         }
     }
 
+    #[cfg(test)]
+    pub(crate) fn set_writer_for_test(&mut self, writer: Box<dyn Write + Send>) {
+        self.writer = Arc::new(Mutex::new(writer));
+    }
+
     fn write_record<W: Write>(
         &self,
         writer: &mut W,

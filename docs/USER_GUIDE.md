@@ -264,7 +264,7 @@ let config = InklogConfig {
     global: inklog::config::GlobalConfig {
         level: "info".into(),
         format: "{timestamp} [{level}] {target} - {message}".to_string(),
-        masking_enabled: true,
+        ..Default::default()
     },
     console_sink: Some(inklog::config::ConsoleSinkConfig::default()),
     file_sink: None,
@@ -281,7 +281,7 @@ let config = InklogConfig {
 |------|------|----------|------|
 | `level` | `String` | `"info"` | 日志级别：`trace`、`debug`、`info`、`warn`、`error` |
 | `format` | `String` | `"{timestamp} [{level}] {target} - {message}"` | 日志格式模板 |
-| `masking_enabled` | `bool` | `true` | 是否启用数据脱敏 |
+| `masking_enabled` | `bool` | `true` | 已弃用的兼容字段（无操作）；标准 logger 路径始终在分发前执行强制 PHI/凭证脱敏 |
 
 **可用的格式变量：**
 - `{timestamp}` - 时间戳
@@ -496,7 +496,7 @@ Inklog 支持自动脱敏敏感个人信息（PII）数据。
 | 身份证号 | `110101199001011234` | `**************1234` |
 | 信用卡号 | `4111111111111111` | `************1111` |
 
-#### 启用数据脱敏
+#### 强制数据脱敏
 
 ```rust
 use inklog::{InklogConfig, config::GlobalConfig};
@@ -505,7 +505,6 @@ let config = InklogConfig {
     global: GlobalConfig {
         level: "info".into(),
         format: "{timestamp} {level} {message}".to_string(),
-        masking_enabled: true,  // 启用数据脱敏
         ..Default::default()
     },
     ..Default::default()
@@ -513,10 +512,13 @@ let config = InklogConfig {
 
 let _logger = LoggerManager::with_config(config).await?;
 
-// 敏感数据将自动脱敏
+// 标准 tracing 和 log adapter 路径始终执行敏感数据脱敏
 log::info!("用户邮箱: user@example.com");
 // 输出: 用户邮箱: ***@***.***
 ```
+
+全局 `masking_enabled` 是已弃用的无操作兼容字段，不启用或禁用该安全边界。
+只有 `ConsoleSink` 和 `FileSink` 的同名开关控制额外的 Sink 层脱敏。
 
 #### 自定义脱敏模式
 
@@ -892,7 +894,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         global: GlobalConfig {
             level: "debug".into(),
             format: format_string.to_string(),
-            masking_enabled: true,
             ..Default::default()
         },
         ..Default::default()
@@ -1072,7 +1073,7 @@ Inklog 支持通过环境变量覆盖配置。
 |----------|------|--------|
 | `INKLOG_LEVEL` | 日志级别 | `INKLOG_LEVEL=debug` |
 | `INKLOG_FORMAT` | 日志格式 | `INKLOG_FORMAT="{timestamp} {message}"` |
-| `INKLOG_MASKING_ENABLED` | 启用数据脱敏 | `INKLOG_MASKING_ENABLED=true` |
+| `INKLOG_GLOBAL_MASKING_ENABLED` | 已弃用的无操作兼容覆盖；不控制强制脱敏 | `INKLOG_GLOBAL_MASKING_ENABLED=true` |
 
 ### 控制台 Sink 配置变量
 
@@ -1247,10 +1248,9 @@ compress = true  // 启用压缩节省空间
    std::env::set_var("INKLOG_ENCRYPTION_KEY", key);
    ```
 
-2. **使用数据脱敏保护敏感信息**
-   ```rust
-   masking_enabled = true
-   ```
+2. **使用标准 logger 路径保护敏感信息**
+   - tracing 和 `log` adapter 路径始终在分发前执行强制脱敏，无需配置开关。
+   - 直接构造 `LogRecord` 时，必须在发送到任何 Sink 前调用 `mask_sensitive_fields()`。
 
 3. **启用文件加密**
    ```rust
@@ -1419,17 +1419,22 @@ let config = InklogConfig {
 };
 ```
 
-### 如何禁用数据脱敏？
+### 可以禁用数据脱敏吗？
 
 ```rust
 let config = InklogConfig {
     global: GlobalConfig {
-        masking_enabled: false,  // 禁用脱敏
+        masking_enabled: false,  // 当前为无操作的兼容字段，不控制任何脱敏步骤
         ..Default::default()
     },
     ..Default::default()
 };
 ```
+
+通过 tracing 和 `log` adapter 创建的记录始终会在进入 channel 前执行 PHI 与凭证脱敏。
+该安全边界不能通过配置关闭。全局 `masking_enabled` 字段为无操作的兼容字段。
+`ConsoleSink` 和 `FileSink` 的同名开关只控制额外的脱敏步骤；直接构造 `LogRecord`
+的调用方必须先调用 `mask_sensitive_fields()`，再把记录发送给任何 Sink。
 
 ### 加密和压缩可以同时使用吗？
 
